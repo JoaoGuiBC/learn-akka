@@ -112,21 +112,24 @@ object ChangingActorBehavior extends App {
   case class AggregateVotes(citizens: Set[ActorRef])
   class VoteAggregator extends Actor:
     import Citizen._
-    override def receive: Actor.Receive = aggregateReceive(Map())
+    override def receive: Actor.Receive = voteReceive(Map(), 0)
+      
+    def voteReceive(votes: Map[String, Int], citizensQty: Int): Receive =
+      case AggregateVotes(citizens) => 
+        context.become(voteReceive(votes, citizens.size))
+        citizens.foreach(citizen => citizen ! VoteStatusRequest)
+      case VoteStatusReply(Some(candidate)) =>
+        val candidateVotes = votes.getOrElse(candidate, 0)
+        context.become(voteReceive(votes + (candidate -> (candidateVotes + 1)), citizensQty))
+        val totalVotes = votes.map((_, voteQty) => voteQty).size
+        if (totalVotes + 1) == citizensQty then self ! VoteStatusRequest
+      case VoteStatusReply(none) => 
+        val nullVotes = votes.getOrElse("null", 0)
+        context.become(voteReceive(votes + ("null" -> (nullVotes + 1)), citizensQty))
+        val totalVotes = votes.map((_, voteQty) => voteQty).size
+        if (totalVotes + 1) == citizensQty then self ! VoteStatusRequest
+      case VoteStatusRequest => println(s"[VOTE AGGREGATOR]: The votes are: $votes")
 
-    def aggregateReceive(votes: Map[String, Int]): Receive =
-      case AggregateVotes(citizens) =>
-        val future = Future {
-          citizens.foreach(_ ! VoteStatusRequest)
-        }
-
-        future.onComplete:
-          case Success(_) => self ! VoteStatusRequest
-          case Failure(_) => println(s"[${self.path}]: Something went wrong")
-
-      case VoteStatusReply(candidate) =>
-        context.become(aggregateReceive(candidate :: votes))
-      case VoteStatusRequest => println(s"OS VOTOS SÃO: $votes")
   end VoteAggregator
 
   val john = system.actorOf(Props(Citizen()))
@@ -142,7 +145,6 @@ object ChangingActorBehavior extends App {
 
   val voteAggregator = system.actorOf(Props(VoteAggregator()))
   voteAggregator ! AggregateVotes(Set(john, jane, alice, bob))
-  // println(jane ! VoteStatusRequest)
 
   /*
     print the status of the votes
