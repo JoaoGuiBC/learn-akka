@@ -113,22 +113,27 @@ object ChangingActorBehavior extends App {
   class VoteAggregator extends Actor:
     import Citizen._
     override def receive: Actor.Receive = voteReceive(Map(), 0)
-      
+
     def voteReceive(votes: Map[String, Int], citizensQty: Int): Receive =
-      case AggregateVotes(citizens) => 
+      case AggregateVotes(citizens) =>
         context.become(voteReceive(votes, citizens.size))
         citizens.foreach(citizen => citizen ! VoteStatusRequest)
       case VoteStatusReply(Some(candidate)) =>
         val candidateVotes = votes.getOrElse(candidate, 0)
-        context.become(voteReceive(votes + (candidate -> (candidateVotes + 1)), citizensQty))
+        context.become(
+          voteReceive(votes + (candidate -> (candidateVotes + 1)), citizensQty)
+        )
         val totalVotes = votes.map((_, voteQty) => voteQty).size
         if (totalVotes + 1) == citizensQty then self ! VoteStatusRequest
-      case VoteStatusReply(none) => 
+      case VoteStatusReply(none) =>
         val nullVotes = votes.getOrElse("null", 0)
-        context.become(voteReceive(votes + ("null" -> (nullVotes + 1)), citizensQty))
+        context.become(
+          voteReceive(votes + ("null" -> (nullVotes + 1)), citizensQty)
+        )
         val totalVotes = votes.map((_, voteQty) => voteQty).size
         if (totalVotes + 1) == citizensQty then self ! VoteStatusRequest
-      case VoteStatusRequest => println(s"[VOTE AGGREGATOR]: The votes are: $votes")
+      case VoteStatusRequest =>
+        println(s"[VOTE AGGREGATOR]: The votes are: $votes")
 
   end VoteAggregator
 
@@ -145,12 +150,4 @@ object ChangingActorBehavior extends App {
 
   val voteAggregator = system.actorOf(Props(VoteAggregator()))
   voteAggregator ! AggregateVotes(Set(john, jane, alice, bob))
-
-  /*
-    print the status of the votes
-
-    Martin -> 1
-    Jonas -> 1
-    Roland -> 2
-   */
 }
