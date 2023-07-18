@@ -6,12 +6,10 @@ lazy val root = project
   .settings(
     name := "learn-akka",
     version := "0.1.0-SNAPSHOT",
-
     scalaVersion := scala3Version,
-
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor" % AkkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % AkkaVersion % Test,
       "org.scalatest" %% "scalatest" % "3.2.12" % Test
     )
-  ) 
+  )
